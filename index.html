@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clima Punilla - Canal TV</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f0a1a; font-family: Arial, sans-serif; color: #fff; }
+.layout { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── TOPBAR ── */
+.topbar {
+  padding: 12px 16px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.upd { font-size: 12px; color: #bbb; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; }
+.btn-refresh { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
+.btn-refresh:hover { background: rgba(255,255,255,0.22); }
+.btn-dl { background: #e67e22; color: #fff; }
+.btn-dl:hover { background: #d35400; }
+.btn-panel { background: #8e44ad; color: #fff; }
+.btn-panel:hover { background: #6c3483; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.tab-btn {
+  padding: 10px 28px; background: transparent; border: none; color: rgba(255,255,255,0.5);
+  cursor: pointer; font-size: 13px; font-weight: 700; border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn.on { color: #fff; border-bottom-color: #e67e22; }
+.tab-btn:hover { color: #fff; }
+
+/* ── CANVAS ── */
+.main-area { padding: 14px; }
+#weatherCanvas, #extCanvas {
+  width: 100%; height: auto; border-radius: 10px; display: block;
+  box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+}
+.loading-msg {
+  text-align: center; padding: 60px 20px; color: #aaa; font-size: 15px;
+  background: rgba(255,255,255,0.04); border-radius: 12px;
+}
+
+/* ── PANEL INFERIOR ── */
+.side-panel {
+  height: 0; overflow: hidden;
+  background: #1a0f2e;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  transition: height 0.35s ease;
+}
+.side-panel.open { height: auto; overflow: visible; }
+.panel-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.panel-header h3 { font-size: 13px; font-weight: 700; color: #e0c060; letter-spacing: 1px; }
+.btn-close { background: none; border: none; color: #aaa; font-size: 20px; cursor: pointer; }
+.btn-close:hover { color: #fff; }
+
+/* Sliders */
+.sliders-section { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); }
+.sliders-section h4 { font-size: 11px; color: #a0a0c0; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+.sliders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 10px 24px; }
+.slider-row label { font-size: 11px; color: #ccc; display: flex; justify-content: space-between; margin-bottom: 4px; }
+.slider-row label span { color: #e0c060; font-weight: 700; }
+input[type=range] { width: 100%; accent-color: #e0c060; height: 4px; cursor: pointer; }
+input[type=color] { width: 100%; height: 30px; border-radius: 6px; cursor: pointer; border: none; background: none; }
+
+/* Ciudades */
+.cities-section { padding: 14px 20px; }
+.cities-section h4 { font-size: 11px; color: #a0a0c0; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+.cities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px,1fr)); gap: 8px; }
+.edit-card { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; border: 1px solid rgba(255,255,255,0.08); }
+.edit-card .city-name { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #e0c060; margin-bottom: 7px; }
+.edit-card select, .edit-card input[type=number] {
+  width: 100%; padding: 5px 8px; border-radius: 6px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; font-size: 12px; margin-bottom: 5px;
+}
+.edit-card select option { background: #1a0f2e; }
+.edit-card .temps { display: flex; gap: 5px; }
+.edit-card .temps > div { flex: 1; }
+.edit-card label { font-size: 10px; color: #888; display: block; margin-bottom: 2px; }
+.edit-card input[type=number] { margin-bottom: 0; }
+
+/* Panel extendido */
+.ext-edit { padding: 14px 20px; }
+.ext-edit h4 { font-size: 11px; color: #a0a0c0; letter-spacing: 1px; margin-bottom: 10px; text-transform: uppercase; }
+.ext-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ext-card { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 12px; border: 1px solid rgba(255,255,255,0.08); }
+.ext-card .day-label { font-size: 11px; font-weight: 700; color: #e0c060; margin-bottom: 8px; text-transform: uppercase; }
+.ext-card select, .ext-card input[type=number] {
+  width: 100%; padding: 5px 8px; border-radius: 6px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; font-size: 12px; margin-bottom: 6px;
+}
+.ext-card select option { background: #1a0f2e; }
+.ext-card .row3 { display: flex; gap: 5px; }
+.ext-card .row3 > div { flex: 1; }
+.ext-card label { font-size: 10px; color: #888; display: block; margin-bottom: 2px; }
+
+.btn-apply {
+  margin: 12px 20px 16px; padding: 10px 32px; border-radius: 8px;
+  background: #27ae60; color: #fff; border: none;
+  font-size: 13px; font-weight: 700; cursor: pointer; display: block;
+}
+.btn-apply:hover { background: #219a52; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <div class="topbar">
+    <span class="upd" id="upd">Cargando...</span>
+    <div class="btns">
+      <button class="btn btn-refresh" onclick="loadAll()">↻ Actualizar</button>
+      <button class="btn btn-panel" onclick="togglePanel()">✏️ Editar</button>
+      <button class="btn btn-dl" id="btnDl" onclick="descargarActual()" disabled>⬇ Descargar</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn on" onclick="showTab('loc',this)">📺 Clima localidades</button>
+    <button class="tab-btn" onclick="showTab('ext',this)">📅 Pronóstico extendido</button>
+  </div>
+
+  <div class="main-area">
+    <div id="loading-msg" class="loading-msg">⏳ Cargando clima e imágenes...</div>
+    <div id="tab-loc" style="display:none"><canvas id="weatherCanvas"></canvas></div>
+    <div id="tab-ext" style="display:none"><canvas id="extCanvas"></canvas></div>
+  </div>
+
+  <!-- PANEL INFERIOR -->
+  <div class="side-panel" id="sidePanel">
+    <div class="panel-header">
+      <h3 id="panel-title">✏️ AJUSTES — LOCALIDADES</h3>
+      <button class="btn-close" onclick="togglePanel()">✕</button>
+    </div>
+
+    <!-- SLIDERS GLOBALES -->
+    <div class="sliders-section">
+      <h4>Escala global</h4>
+      <div class="sliders-grid">
+        <div class="slider-row">
+          <label>Íconos <span id="val-icon">100%</span></label>
+          <input type="range" id="sl-icon" min="50" max="200" value="100" oninput="actualizarSlider('icon',this.value)">
+        </div>
+        <div class="slider-row">
+          <label>Condición <span id="val-cond">100%</span></label>
+          <input type="range" id="sl-cond" min="50" max="200" value="100" oninput="actualizarSlider('cond',this.value)">
+        </div>
+        <div class="slider-row">
+          <label>Temperaturas <span id="val-temp">100%</span></label>
+          <input type="range" id="sl-temp" min="50" max="200" value="100" oninput="actualizarSlider('temp',this.value)">
+        </div>
+        <div class="slider-row">
+          <label>Color temperaturas</label>
+          <input type="color" id="color-temp" value="#ffffff" oninput="redibujarActual()">
+        </div>
+        <div class="slider-row">
+          <label>Color condición</label>
+          <input type="color" id="color-cond" value="#ffffff" oninput="redibujarActual()">
+        </div>
+      </div>
+    </div>
+
+    <!-- PANEL LOCALIDADES -->
+    <div id="panel-loc">
+      <div class="cities-section">
+        <h4>Datos por ciudad</h4>
+        <div class="cities-grid" id="edit-grid"></div>
+      </div>
+      <button class="btn-apply" onclick="aplicarEdicion()">✅ Aplicar cambios</button>
+    </div>
+
+    <!-- PANEL EXTENDIDO -->
+    <div id="panel-ext" style="display:none">
+      <div class="ext-edit">
+        <h4>Datos del pronóstico (próximos 3 días · Villa Carlos Paz)</h4>
+        <div class="ext-grid" id="ext-edit-grid"></div>
+      </div>
+      <button class="btn-apply" onclick="aplicarEdicionExt()">✅ Aplicar cambios</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── LOCALIDADES ────────────────────────────────────────────────────────────
+const LOCS = [
+  { n:"VILLA CARLOS PAZ",      lat:-31.4241, lon:-64.4978,
+    cx:292,  cy:285,  iconSize:220, condY:430, tempY:490, fontSize:24, tempSize:33 },
+  { n:"SAN ANTONIO",           lat:-31.4667, lon:-64.5167,
+    cx:708,  cy:350,  iconSize:140, condY:458, tempY:505, fontSize:21, tempSize:28 },
+  { n:"BIALET MASSÉ",          lat:-31.3167, lon:-64.4833,
+    cx:1041, cy:350,  iconSize:140, condY:458, tempY:505, fontSize:21, tempSize:28 },
+  { n:"V. PARQUE SIQUIMÁN",    lat:-31.3667, lon:-64.5000,
+    cx:1376, cy:355,  iconSize:140, condY:462, tempY:510, fontSize:21, tempSize:28 },
+  { n:"STA. MARÍA DE PUNILLA", lat:-31.3667, lon:-64.4667,
+    cx:1722, cy:352,  iconSize:140, condY:460, tempY:507, fontSize:21, tempSize:28 },
+  { n:"LA CUMBRE",             lat:-30.9667, lon:-64.5167,
+    cx:228,  cy:700,  iconSize:120, condY:784, tempY:827, fontSize:21, tempSize:28 },
+  { n:"LOS COCOS",             lat:-30.9833, lon:-64.5333,
+    cx:532,  cy:700,  iconSize:120, condY:780, tempY:822, fontSize:21, tempSize:28 },
+  { n:"CAPILLA DEL MONTE",     lat:-30.8600, lon:-64.5250,
+    cx:832,  cy:700,  iconSize:120, condY:784, tempY:827, fontSize:21, tempSize:28 },
+  { n:"MALAGUEÑO",             lat:-31.4647, lon:-64.3586,
+    cx:1125, cy:700,  iconSize:120, condY:784, tempY:827, fontSize:21, tempSize:28 },
+  { n:"CÓRDOBA",               lat:-31.4201, lon:-64.1888,
+    cx:1436, cy:700,  iconSize:120, condY:778, tempY:820, fontSize:21, tempSize:28 },
+  { n:"COSQUÍN",               lat:-31.2451, lon:-64.4656,
+    cx:1743, cy:700,  iconSize:120, condY:784, tempY:827, fontSize:21, tempSize:28 },
+];
+
+// ─── POSICIONES EXTENDIDO (1920x1080) ───────────────────────────────────────
+// Medidas tomadas sobre plantilla_extendido.jpg. Las nubes negras de la plantilla se
+// respetan (son el ícono de probabilidad de lluvia): el % va DEBAJO de cada una.
+// Márgenes: todo texto se achica solo si no entra en su zona (maxW), y los íconos
+// no pueden pasar de iconMax, así nada se sale de la tarjeta aunque cambies valores o escala.
+const EXT = {
+  // Tarjeta grande: x 272-1215, y 107-943. Líneas degradadas en y=295 y y=770.
+  // Zona segura horizontal: x 320 → 1167 (mismo margen que las líneas).
+  main: {
+    dayX: 320,  dayY: 225,  dayPx: 92,  dayMax: 108, dayMaxW: 530,     // arriba a la izquierda (la nube empieza en x=888)
+    rainX: 934, rainY: 277, rainPx: 27, rainMax: 30,  rainMaxW: 110,    // debajo de la nube (x 888-981, y 167-259)
+    maxX: 320,  maxY: 500,  maxPx: 150, maxMax: 180,                    // temperatura máxima
+    minX: 320,  minY: 646,  minPx: 108, minMax: 128,  tempMaxW: 440,    // temperatura mínima
+    iconX: 985, iconY: 570, iconPx: 330, iconMax: 360,                  // ícono grande a la derecha
+    condX: 743, condY: 858, condPx: 80,  condMax: 96, condMaxW: 847,    // debajo de la línea inferior, centrado en la tarjeta
+  },
+  // Tarjetas chicas: x 1233-1627. Línea vertical en x=1509. Cada una con su nube.
+  // Todo lo vertical es relativo a y0 (borde superior de la tarjeta).
+  smallCards: [
+    { y0: 108, cloudX: 1558, cloudBottom: 271 },
+    { y0: 533, cloudX: 1565, cloudBottom: 700 },
+  ],
+  small: {
+    dayX: 1269,  dayDY: 62,   dayPx: 34,  dayMax: 40,  dayMaxW: 218,     // arriba a la izquierda de la línea vertical
+    iconX: 1378, iconDY: 160, iconPx: 140, iconMax: 150,                  // debajo del día
+    rainDY: 32,  rainPx: 30,  rainMax: 34, rainMaxW: 80,                  // debajo de la nube, a la derecha de la línea
+    tempX: 1430, tempDY: 292, tempPx: 46,  tempMax: 54, tempMaxW: 330,    // franja inferior (la línea vertical termina antes)
+    condX: 1430, condDY: 345, condPx: 30,  condMax: 35, condMaxW: 330,
+  },
+};
+
+const DIAS = ["DOMINGO","LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES","SÁBADO"];
+const CONDICIONES = ["DESPEJADO","SEMINUBLADO","NUBLADO","LLUVIA","LLOVIZNA","TORMENTA","NIEBLA","NIEVE","VARIABLE"];
+const ICONOS_NOMBRES = ["despejado","seminublado","nublado","lluvia","llovizna","tormenta","niebla","nieve"];
+const condToFile = {
+  "DESPEJADO":"despejado","SEMINUBLADO":"seminublado","NUBLADO":"nublado",
+  "LLUVIA":"lluvia","LLOVIZNA":"llovizna","TORMENTA":"tormenta",
+  "NIEBLA":"niebla","NIEVE":"nieve","VARIABLE":"nublado"
+};
+
+function wmo(c) {
+  if (c===0)                                     return {l:"DESPEJADO",   f:"despejado"};
+  if ([1,2].includes(c))                         return {l:"SEMINUBLADO", f:"seminublado"};
+  if (c===3)                                     return {l:"NUBLADO",     f:"nublado"};
+  if ([45,48].includes(c))                       return {l:"NIEBLA",      f:"niebla"};
+  if ([51,53,55,56,57].includes(c))              return {l:"LLOVIZNA",    f:"llovizna"};
+  if ([61,63,65,66,67,80,81,82].includes(c))     return {l:"LLUVIA",      f:"lluvia"};
+  if ([71,73,75,77].includes(c))                 return {l:"NIEVE",       f:"nieve"};
+  if ([95,96,99].includes(c))                    return {l:"TORMENTA",    f:"tormenta"};
+  return {l:"VARIABLE", f:"nublado"};
+}
+
+function dayName(off) {
+  const d = new Date(); d.setDate(d.getDate()+off); return DIAS[d.getDay()];
+}
+
+// 'YYYY-MM-DD' → nombre del día, sin depender de la zona horaria de la compu
+function diaDesdeFecha(str) {
+  if (!str) return null;
+  const [y,m,d] = str.split('-').map(Number);
+  return DIAS[new Date(Date.UTC(y, m-1, d)).getUTCDay()];
+}
+
+// Texto que nunca se pasa del ancho máximo: si no entra, baja el tamaño de letra.
+function textoAjustado(ctx, texto, x, y, px, maxW, align, color, alpha) {
+  texto = String(texto);
+  ctx.font = `900 ${Math.round(px)}px Arial`;
+  const w = ctx.measureText(texto).width;
+  const f = w > maxW ? Math.max(10, Math.floor(px * maxW / w)) : Math.round(px);
+  ctx.font = `900 ${f}px Arial`;
+  ctx.textAlign = align; ctx.fillStyle = color;
+  ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+  ctx.fillText(texto, x, y);
+  ctx.globalAlpha = 1;
+}
+
+// Ícono centrado en (cx,cy) con escala, limitado a un máximo para respetar márgenes.
+function iconoAjustado(ctx, img, cx, cy, base, max) {
+  const s = Math.min(base * scales.icon, max);
+  ctx.drawImage(img, cx - s/2, cy - s/2, s, s);
+}
+
+// ─── ESTADO ─────────────────────────────────────────────────────────────────
+let weatherData = [];
+let extData = [];      // [{cond, condFile, max, min, rain}, x3]
+let imgPlantilla = null, imgExt = null;
+let imgIconos = {};
+let scales = { icon:1, cond:1, temp:1 };
+let tabActual = 'loc';
+
+// ─── CARGAR IMÁGENES ─────────────────────────────────────────────────────────
+function cargarImagen(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error("No cargó: " + src));
+    img.src = src + "?v=" + Date.now();
+  });
+}
+
+async function cargarTodosLosAssets() {
+  imgPlantilla = await cargarImagen("img/plantilla_sola.png");
+  imgExt = await cargarImagen("img/plantilla_extendido.jpg");
+  for (const n of ICONOS_NOMBRES) {
+    imgIconos[n] = await cargarImagen(`img/${n}.png`);
+  }
+}
+
+// ─── FETCH ───────────────────────────────────────────────────────────────────
+async function fetchLoc(lat, lon) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FArgentina%2FCordoba&forecast_days=4`;
+  for (let i=0; i<3; i++) {
+    try { const r=await fetch(url); if(r.ok) return await r.json(); } catch(e){}
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  return null;
+}
+
+async function loadAll() {
+  document.getElementById('upd').textContent = 'Actualizando...';
+  document.getElementById('btnDl').disabled = true;
+  document.getElementById('loading-msg').style.display = 'block';
+  document.getElementById('tab-loc').style.display = 'none';
+  document.getElementById('tab-ext').style.display = 'none';
+
+  try { await cargarTodosLosAssets(); }
+  catch(e) { document.getElementById('loading-msg').textContent = '⚠️ Error: '+e.message; return; }
+
+  const raw = await Promise.all(LOCS.map(l=>fetchLoc(l.lat,l.lon)));
+
+  weatherData = LOCS.map((loc,i) => {
+    const d = raw[i];
+    if (!d) return {cond:"VARIABLE",condFile:"nublado",max:"--",min:"--"};
+    const w = wmo(d.daily.weather_code[0]);
+    return {cond:w.l, condFile:w.f, max:Math.round(d.daily.temperature_2m_max[0]), min:Math.round(d.daily.temperature_2m_min[0])};
+  });
+
+  // Extendido: próximos 3 días de Carlos Paz (índices 1,2,3 → mañana, pasado y el siguiente)
+  const cp = raw[0];
+  extData = [1,2,3].map(i => {
+    if (!cp) return {cond:"VARIABLE",condFile:"nublado",max:"--",min:"--",rain:0,day:dayName(i)};
+    const w = wmo(cp.daily.weather_code[i]);
+    return {
+      cond:w.l, condFile:w.f,
+      max:Math.round(cp.daily.temperature_2m_max[i]),
+      min:Math.round(cp.daily.temperature_2m_min[i]),
+      rain:cp.daily.precipitation_probability_max[i]||0,
+      day:diaDesdeFecha(cp.daily.time[i]) || dayName(i)
+    };
+  });
+
+  dibujarLocalidades();
+  dibujarExtendido();
+  construirPanelLoc();
+  construirPanelExt();
+
+  document.getElementById('loading-msg').style.display = 'none';
+  showTab(tabActual, document.querySelector('.tab-btn.on'));
+  document.getElementById('btnDl').disabled = false;
+
+  const now = new Date();
+  document.getElementById('upd').textContent =
+    'Actualizado: '+now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+
+    ' · '+now.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+}
+
+// ─── DIBUJAR LOCALIDADES ─────────────────────────────────────────────────────
+function dibujarLocalidades() {
+  const canvas = document.getElementById('weatherCanvas');
+  canvas.width = 1920; canvas.height = 1080;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgPlantilla, 0, 0, 1920, 1080);
+
+  const colorTemp = document.getElementById('color-temp').value;
+  const colorCond = document.getElementById('color-cond').value;
+
+  LOCS.forEach((loc,i) => {
+    const d = weatherData[i];
+    const icono = imgIconos[d.condFile]||imgIconos["nublado"];
+    const is = loc.iconSize * scales.icon;
+    ctx.drawImage(icono, loc.cx-is/2, loc.cy-is/2, is, is);
+
+    ctx.save();
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.shadowColor="rgba(0,0,0,0.95)"; ctx.shadowBlur=8; ctx.shadowOffsetX=2; ctx.shadowOffsetY=2;
+
+    ctx.font=`900 ${Math.round(loc.fontSize*scales.cond)}px Arial`;
+    ctx.fillStyle=colorCond;
+    ctx.fillText(d.cond, loc.cx, loc.condY);
+
+    ctx.font=`900 ${Math.round(loc.tempSize*scales.temp)}px Arial`;
+    ctx.fillStyle=colorTemp;
+    ctx.fillText(`${d.max}° / ${d.min}°`, loc.cx, loc.tempY);
+    ctx.restore();
+  });
+}
+
+// ─── DIBUJAR EXTENDIDO ───────────────────────────────────────────────────────
+// Tarjeta grande = mañana · tarjetas chicas = pasado mañana y el día siguiente.
+function dibujarExtendido() {
+  const canvas = document.getElementById('extCanvas');
+  canvas.width = 1920; canvas.height = 1080;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(imgExt, 0, 0, 1920, 1080);
+
+  const colorTemp = document.getElementById('color-temp').value;
+  const colorCond = document.getElementById('color-cond').value;
+  const sc = scales;
+  const esc = (base, k, tope) => Math.min(base * k, tope);   // escala con tope (respeta márgenes)
+
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 6; ctx.shadowOffsetX = 1; ctx.shadowOffsetY = 1;
+
+  // ══ TARJETA GRANDE ══════════════════════════════
+  const m = EXT.main, d0 = extData[0];
+  textoAjustado(ctx, d0.day,        m.dayX,  m.dayY,  esc(m.dayPx,  sc.cond, m.dayMax),  m.dayMaxW,  'left',   '#fff');
+  textoAjustado(ctx, `${d0.rain}%`, m.rainX, m.rainY, esc(m.rainPx, sc.temp, m.rainMax), m.rainMaxW, 'center', '#fff');
+  textoAjustado(ctx, `${d0.max}°`,  m.maxX,  m.maxY,  esc(m.maxPx,  sc.temp, m.maxMax),  m.tempMaxW, 'left',   colorTemp);
+  textoAjustado(ctx, `${d0.min}°`,  m.minX,  m.minY,  esc(m.minPx,  sc.temp, m.minMax),  m.tempMaxW, 'left',   colorTemp, 0.75);
+  iconoAjustado(ctx, imgIconos[d0.condFile] || imgIconos['nublado'], m.iconX, m.iconY, m.iconPx, m.iconMax);
+  textoAjustado(ctx, d0.cond,       m.condX, m.condY, esc(m.condPx, sc.cond, m.condMax), m.condMaxW, 'center', colorCond);
+
+  // ══ TARJETAS CHICAS ═════════════════════════════
+  const s = EXT.small;
+  EXT.smallCards.forEach((card, k) => {
+    const d = extData[k+1], y0 = card.y0;
+    textoAjustado(ctx, d.day,                   s.dayX,  y0+s.dayDY,  esc(s.dayPx,  sc.cond, s.dayMax),  s.dayMaxW,  'left',   '#fff');
+    iconoAjustado(ctx, imgIconos[d.condFile] || imgIconos['nublado'], s.iconX, y0+s.iconDY, s.iconPx, s.iconMax);
+    textoAjustado(ctx, `${d.rain}%`,            card.cloudX, card.cloudBottom+s.rainDY, esc(s.rainPx, sc.temp, s.rainMax), s.rainMaxW, 'center', '#fff');
+    textoAjustado(ctx, `${d.max}° / ${d.min}°`, s.tempX, y0+s.tempDY, esc(s.tempPx, sc.temp, s.tempMax), s.tempMaxW, 'center', colorTemp);
+    textoAjustado(ctx, d.cond,                  s.condX, y0+s.condDY, esc(s.condPx, sc.cond, s.condMax), s.condMaxW, 'center', colorCond);
+  });
+
+  ctx.restore();
+}
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function showTab(t, btn) {
+  tabActual = t;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  document.getElementById('tab-loc').style.display = t==='loc'?'block':'none';
+  document.getElementById('tab-ext').style.display = t==='ext'?'block':'none';
+  document.getElementById('panel-loc').style.display = t==='loc'?'block':'none';
+  document.getElementById('panel-ext').style.display = t==='ext'?'block':'none';
+  document.getElementById('panel-title').textContent =
+    t==='loc'?'✏️ AJUSTES — LOCALIDADES':'✏️ AJUSTES — PRONÓSTICO EXTENDIDO';
+}
+
+// ─── PANEL ───────────────────────────────────────────────────────────────────
+function togglePanel() { document.getElementById('sidePanel').classList.toggle('open'); }
+
+function actualizarSlider(tipo, valor) {
+  scales[tipo] = valor/100;
+  document.getElementById('val-'+tipo).textContent = valor+'%';
+  redibujarActual();
+}
+
+function redibujarActual() {
+  if (tabActual==='loc') dibujarLocalidades();
+  else dibujarExtendido();
+}
+
+// ─── PANEL LOCALIDADES ───────────────────────────────────────────────────────
+function construirPanelLoc() {
+  const grid = document.getElementById('edit-grid');
+  grid.innerHTML = '';
+  LOCS.forEach((loc,i) => {
+    const d = weatherData[i];
+    const card = document.createElement('div');
+    card.className = 'edit-card';
+    card.innerHTML = `
+      <div class="city-name">${loc.n}</div>
+      <label>Condición</label>
+      <select id="cond-${i}">${CONDICIONES.map(c=>`<option value="${c}" ${c===d.cond?'selected':''}>${c}</option>`).join('')}</select>
+      <div class="temps">
+        <div><label>Máx</label><input type="number" id="max-${i}" value="${d.max}"></div>
+        <div><label>Mín</label><input type="number" id="min-${i}" value="${d.min}"></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function aplicarEdicion() {
+  LOCS.forEach((_,i) => {
+    const cond = document.getElementById(`cond-${i}`).value;
+    weatherData[i] = {
+      cond, condFile:condToFile[cond]||"nublado",
+      max:document.getElementById(`max-${i}`).value,
+      min:document.getElementById(`min-${i}`).value,
+    };
+  });
+  dibujarLocalidades();
+}
+
+// ─── PANEL EXTENDIDO ─────────────────────────────────────────────────────────
+function construirPanelExt() {
+  const grid = document.getElementById('ext-edit-grid');
+  grid.innerHTML = '';
+  extData.forEach((d,i) => {
+    const card = document.createElement('div');
+    card.className = 'ext-card';
+    card.innerHTML = `
+      <div class="day-label">${d.day}</div>
+      <label>Condición</label>
+      <select id="ext-cond-${i}">${CONDICIONES.map(c=>`<option value="${c}" ${c===d.cond?'selected':''}>${c}</option>`).join('')}</select>
+      <div class="row3">
+        <div><label>Máx</label><input type="number" id="ext-max-${i}" value="${d.max}"></div>
+        <div><label>Mín</label><input type="number" id="ext-min-${i}" value="${d.min}"></div>
+        <div><label>Lluvia %</label><input type="number" id="ext-rain-${i}" value="${d.rain}" min="0" max="100"></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function aplicarEdicionExt() {
+  const val = id => { const v = document.getElementById(id).value.trim(); return v === '' ? '--' : v; };
+  extData.forEach((old,i) => {
+    const cond = document.getElementById(`ext-cond-${i}`).value;
+    const rain = Math.min(100, Math.max(0, parseInt(document.getElementById(`ext-rain-${i}`).value, 10) || 0));
+    extData[i] = {
+      cond, condFile:condToFile[cond]||"nublado",
+      max:val(`ext-max-${i}`), min:val(`ext-min-${i}`), rain,
+      day:old.day
+    };
+  });
+  dibujarExtendido();
+}
+
+// ─── DESCARGAR ───────────────────────────────────────────────────────────────
+function descargarActual() {
+  const id = tabActual==='loc'?'weatherCanvas':'extCanvas';
+  const nombre = tabActual==='loc'?'clima_localidades':'clima_extendido';
+  const canvas = document.getElementById(id);
+  const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+  const link = document.createElement('a');
+  link.download = `${nombre}_${fecha}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+loadAll();
+</script>
+</body>
+</html>
